@@ -102,7 +102,9 @@ class DockerComposeService:
     """Represents a single service in a docker-compose.yml file."""
     image: Optional[str] = None
     build: Union[str, DockerComposeBuild, None] = None
+    command: Union[str, List[str], None] = None
     ports: List[str] = field(default_factory=list)
+    environment: Union[Dict[str, Optional[str]], List[str], None] = None
     env_file: Union[str, List[str], None] = None
     volumes: List[str] = field(default_factory=list)
     healthcheck: Optional[DockerComposeHealthCheck] = None

@@ -3,9 +3,15 @@
 The main entrypoint for the CLI application.
 """
 from pathlib import Path
+import sys
 
 import typer
+from typing import Dict, Any
 from rich.console import Console
+from ruamel.yaml import YAML
+
+from .models import DockerComposeConfig, DockerComposeService
+from .translator import Translator
 
 # Create a Typer application instance
 app = typer.Typer(
@@ -16,6 +22,8 @@ app = typer.Typer(
 
 # Create a Rich console for beautiful output
 console = Console()
+yaml = YAML()
+yaml.indent(mapping=2, sequence=4, offset=2)
 
 
 @app.command()
@@ -41,28 +49,50 @@ def convert(
         resolve_path=True,
         help="Path to the output render.yaml file.",
     ),
-    verbose: bool = typer.Option(
-        False,
-        "--verbose",
-        "-v",
-        help="Enable verbose output.",
-    ),
 ) -> None:
     """
     Converts a docker-compose.yml file to a render.yaml blueprint.
     """
     console.print(f"🚀 Starting conversion of [bold cyan]{input_file.name}[/bold cyan]...")
 
-    # --- TODO: Day 3-7 ---
-    # 1. Load the input file using ruamel.yaml and our Pydantic models.
-    # 2. Instantiate the Translator class.
-    # 3. Call the translate method.
-    # 4. Handle potential errors gracefully.
-    # 5. Dump the resulting RenderBlueprint object to the output file.
-    # 6. Print warnings and success messages using the rich console.
-    # ----------------------
+    try:
+        with open(input_file, 'r') as f:
+            data = yaml.load(f)
 
-    console.print(f"✅ Successfully converted to [bold green]{output_file.name}[/bold green].")
+        # Basic validation
+        if 'services' not in data:
+            raise ValueError("Input file must contain a 'services' key.")
+
+        # Manually deserialize into our dataclasses
+        services_data: Dict[str, Dict[str, Any]] = data.get('services', {})
+        services: Dict[str, DockerComposeService] = {
+            name: DockerComposeService(**(service_data or {}))
+            for name, service_data in services_data.items()
+        }
+        volumes_data = data.get('volumes', {})
+        compose_config = DockerComposeConfig(services=services, volumes=volumes_data)
+
+        # The core logic
+        translator = Translator(compose_config)
+        blueprint = translator.translate()
+
+        # Prepare the output data
+        output_data = {"services": [vars(s) for s in blueprint.services]}
+
+        with open(output_file, 'w') as f:
+            yaml.dump(output_data, f)
+
+        console.print(f"✅ Successfully converted to [bold green]{output_file.name}[/bold green].")
+
+        # Print warnings, if any
+        if translator.warnings:
+            console.print("\n⚠️ [bold yellow]Warnings:[/bold yellow]")
+            for warning in translator.warnings:
+                console.print(f"  - {warning}")
+    
+    except Exception as e:
+        console.print(f"❌ [bold red]Error:[/bold red] {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
