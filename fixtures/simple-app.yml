@@ -1,0 +1,26 @@
+# A simple but realistic docker-compose file for testing.
+# Includes a web service and a database to test common patterns.
+version: "3.8"
+
+services:
+  web:
+    build: .
+    command: python app.py
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/code
+      - logvolume:/var/log
+    environment:
+      - FLASK_ENV=development
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+
+volumes:
+  logvolume:

@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "compose-to-render"
+version = "0.1.0"
+description = "Bridge the gap between local development and production. Intelligently convert docker-compose.yml to production-ready render.yaml Blueprints."
+authors = ["Khoa ngominhkhoa2006@gmail.com"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/minhkhoango/compose-to-render"
+keywords = ["render", "docker-compose", "iac", "devops", "cli"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+typer = {extras = ["all"], version = "^0.9.0"}
+ruamel-yaml = "^0.17.32"
+rich = "^13.5.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.2"
+mypy = "^1.5.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+compose-to-render = "compose_to_render.main:app"
+
+# Pylance/MyPy Strict Mode Configuration
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
