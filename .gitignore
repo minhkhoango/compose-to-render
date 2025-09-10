@@ -1,8 +1,12 @@
 pycache/
+__pycache__
 *.pyc
 *.pyo
 .pyd
 .Python
+.pytest_cache
+.mypy_cache
+.ruff_cache
 env/
 venv/
 .venv/
@@ -20,6 +24,7 @@ dist/
 build/
 *.egg
 MANIFEST
+render.yaml
 
 VSCode
 .vscode/

@@ -27,21 +27,21 @@ def simple_app_config() -> DockerComposeConfig:
     return DockerComposeConfig(services=services, volumes=volumes)
 
 
-def test_translator_initialization(simple_app_config: DockerComposeConfig):
+def test_translator_initialization(simple_app_config: DockerComposeConfig) -> None:
     """Test that the Translator initializes correctly."""
     translator = Translator(simple_app_config)
     assert translator.compose_config is not None
     assert len(translator.compose_config.services) == 2
 
 
-def test_translate_service_count(simple_app_config: DockerComposeConfig):
+def test_translate_service_count(simple_app_config: DockerComposeConfig) -> None:
     """Test that the correct number of services are translated."""
     translator = Translator(simple_app_config)
     blueprint = translator.translate()
     assert len(blueprint.services) == 2
 
 
-def test_translate_web_service(simple_app_config: DockerComposeConfig):
+def test_translate_web_service(simple_app_config: DockerComposeConfig) -> None:
     """Test the translation of the 'web' service."""
     translator = Translator(simple_app_config)
     blueprint = translator.translate()
@@ -50,7 +50,7 @@ def test_translate_web_service(simple_app_config: DockerComposeConfig):
     assert web_service is not None
     assert web_service.type == 'web'
     assert web_service.ports == "5000"
-    assert web_service.start_command == "python app.py"
+    assert web_service.startCommand == "python app.py"
     
     # Check env vars
     assert len(web_service.envVars) == 2
@@ -65,7 +65,7 @@ def test_translate_web_service(simple_app_config: DockerComposeConfig):
     assert disk.mountPath == '/var/log'
 
 
-def test_translate_redis_service(simple_app_config: DockerComposeConfig):
+def test_translate_redis_service(simple_app_config: DockerComposeConfig) -> None:
     """Test the translation of the 'redis' service."""
     translator = Translator(simple_app_config)
     blueprint = translator.translate()
@@ -79,7 +79,7 @@ def test_translate_redis_service(simple_app_config: DockerComposeConfig):
     assert not redis_service.disks
 
 
-def test_warnings_generation(simple_app_config: DockerComposeConfig):
+def test_warnings_generation(simple_app_config: DockerComposeConfig) -> None:
     """Test that appropriate warnings are generated."""
     translator = Translator(simple_app_config)
     translator.translate() # Run translation to generate warnings

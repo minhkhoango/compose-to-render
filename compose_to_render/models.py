@@ -62,7 +62,7 @@ class RenderService:
     autoDeploy: bool = True
     image: Optional[RenderImage] = None
     dockerfilePath: Optional[str] = None
-    start_command: Optional[str] = None
+    startCommand: Optional[str] = None
     envVars: List[RenderEnvVar] = field(default_factory=list)
     disks: List[RenderDisk] = field(default_factory=list)
     buildFilter: Optional[RenderBuildFilter] = None

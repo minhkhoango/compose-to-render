@@ -6,10 +6,10 @@ from pathlib import Path
 import sys
 
 import typer
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, cast
 from rich.console import Console
 from ruamel.yaml import YAML
-from dataclasses import asdict
+from dataclasses import is_dataclass
 
 from .models import DockerComposeConfig, DockerComposeService
 from .translator import Translator
@@ -27,12 +27,32 @@ yaml = YAML()
 yaml.indent(mapping=2, sequence=4, offset=2)
 
 
-def clean_dict_factory(data: List[Tuple[str, Any]]) -> Dict[str, Any]:
+def to_camel_case(snake_str: str) -> str:
+    """Converts a snake_case string to camelCase."""
+    components = snake_str.split("_")
+    return components[0] + "".join(x.title() for x in components[1:])
+
+
+def to_clean_dict(obj: Any) -> Any:
     """
-    Custom dict factory for asdict that filters out fields with a value of None.
-    This keeps the output YAML clean and readable.
+    Recursively converts a dataclass to a dict, cleaning out empty values
+    and converting keys to camelCase for YAML output.
     """
-    return {k: v for k, v in data if v is not None}
+    if is_dataclass(obj):
+        result: List[Tuple[str, Any]] = []
+        for field_name in obj.__dataclass_fields__:
+            value = to_clean_dict(getattr(obj, field_name))
+            # Skip None, empty lists, and empty dicts
+            if value is not None and value != [] and value != {}:
+                result.append((to_camel_case(field_name), value))
+        return dict(result)
+    elif isinstance(obj, list):
+        return [to_clean_dict(v) for v in cast(List[Any], obj)]
+    elif isinstance(obj, dict):
+        return {k: to_clean_dict(v) for k, v in cast(Dict[str, Any], obj).items()}
+    else:
+        return obj
+
 
 @app.command()
 def convert(
@@ -85,8 +105,7 @@ def convert(
         blueprint = translator.translate()
 
         # Prepare the output data
-        blueprint_dict = asdict(blueprint, dict_factory=clean_dict_factory)
-
+        blueprint_dict = to_clean_dict(blueprint)
 
         with open(output_file, 'w') as f:
             yaml.dump(blueprint_dict, f)

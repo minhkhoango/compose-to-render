@@ -65,7 +65,7 @@ class Translator:
             autoDeploy=True,
             image=image,
             dockerfilePath=dockerfile_path,
-            start_command=self._translate_command(service),
+            startCommand=self._translate_command(service),
             envVars=self._translate_env_vars(service, name),
             disks=self._translate_volumes(service, name),
             healthCheck=self._transfer_healthcheck(service, name),
