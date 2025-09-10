@@ -2,10 +2,6 @@
 
 Intelligently convert `docker-compose.yml` to production-ready `render.yaml` Blueprints for Render.
 
-## Problem & Solution
-
-Docker Compose is great for local development, but Render requires `render.yaml` for Infrastructure as Code. Manually syncing these files is tedious and error-prone. `compose-to-render` bridges this gap by automatically generating best-practice `render.yaml` files from your `docker-compose.yml`.
-
 ## Quick Start
 
 ### Installation
@@ -15,7 +11,51 @@ pip install compose-to-render
 
 ### Usage
 ```bash
-compose-to-render --input docker-compose.yml --output render.yaml
+compose-to-render
+```
+The tool will generate a render.yaml file in the same directory
+
+## Example
+
+This tool converts this:
+
+`docker-compose.yml` (Your Local Dev)
+```yml
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - logvolume:/var/log
+  redis:
+    image: redis:alpine
+
+volumes:
+  logvolume:
+```
+
+Into this:
+`render.yaml` (Production on Render)
+```yaml
+services:
+  - name: web
+    type: web
+    autoDeploy: true
+    dockerfilePath: Dockerfile
+    disks:
+      - name: logvolume
+        mountPath: /var/log
+    buildFilter:
+      paths:
+        - ./**
+    ports: '5000'
+  - name: redis
+    type: pserv
+    autoDeploy: true
+    image:
+      url: redis:alpine
+      owner: docker
 ```
 
 ## Features
@@ -25,10 +65,6 @@ compose-to-render --input docker-compose.yml --output render.yaml
 - Environment variable and `env_file` mapping
 - Warnings for unsupported docker-compose keys
 
-## Limitations
-
-Handles 80% of common use cases with opinionated choices. Review generated `render.yaml` for complex configurations.
-
 ## License
 
-MIT License
+**MIT License**

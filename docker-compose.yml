@@ -1,0 +1,12 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - logvolume:/var/log
+  redis:
+    image: redis:alpine
+
+volumes:
+  logvolume:

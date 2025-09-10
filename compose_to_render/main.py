@@ -47,11 +47,10 @@ def to_clean_dict(obj: Any) -> Any:
                 result.append((to_camel_case(field_name), value))
         return dict(result)
     elif isinstance(obj, list):
-        return [to_clean_dict(v) for v in cast(List[Any], obj)]
+        return [to_clean_dict(v) for v in cast(List[Any], obj)]  # type: ignore[redundant-cast]
     elif isinstance(obj, dict):
         return {k: to_clean_dict(v) for k, v in cast(Dict[str, Any], obj).items()}
-    else:
-        return obj
+    return obj
 
 
 @app.command()
