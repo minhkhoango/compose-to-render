@@ -7,12 +7,15 @@ object and converts it into a RenderBlueprint object.
 """
 
 import re
+from pathlib import Path
 from typing import List, Optional, Tuple, Literal
 
 from .models import (
+    DockerComposeBuild,
     DockerComposeConfig,
     DockerComposeService,
     RenderBlueprint,
+    RenderBuildFilter,
     RenderDisk,
     RenderEnvVar,
     RenderHealthCheck,
@@ -44,18 +47,64 @@ class Translator:
     )-> RenderService:
         """Translates a single Docker Compose service to a Render service."""
         service_type, ports = self._determine_service_type_and_ports(service)
+        image = self._translate_image(service)
+        dockerfile_path, build_filter = self._translate_build_info(service, name)
+
+        # A service must have an image OR a build context, not both.
+        if image and (dockerfile_path or build_filter):
+            self.warnings.append(
+                f"Service '{name}' has both an image and a build context. "
+                "Render will prioritize the image. The build context was ignored."
+            )
+            dockerfile_path = None
+            build_filter = None
 
         return RenderService(
             name=name,
             type=service_type,
-            autoDeploy=True,  # A sensible default
-            image=self._translate_image(service),
+            autoDeploy=True,
+            image=image,
+            dockerfilePath=dockerfile_path,
             start_command=self._translate_command(service),
-            envVars=self._translate_env_vars(service),
-            disks=self._translate_volumes(service),
-            healthCheck=self._transfer_healthcheck(service),
+            envVars=self._translate_env_vars(service, name),
+            disks=self._translate_volumes(service, name),
+            healthCheck=self._transfer_healthcheck(service, name),
             ports=ports
         )
+
+    def _translate_build_info(
+        self, service: DockerComposeService, service_name: str,
+    )-> Tuple[Optional[str], Optional[RenderBuildFilter]]:
+        """Translates the build context into a dockerfilePath and buildFilter."""
+        if not service.build:
+            return None, None
+
+        build_context = ""
+        dockerfile = "Dockerfile"
+
+        if isinstance(service.build, str):
+            build_context = service.build
+        elif isinstance(service.build, dict):
+            # This handles the object form of 'build'
+            build_data = DockerComposeBuild(**service.build)
+            build_context = build_data.context
+            if build_data.dockerfile:
+                dockerfile = build_data.dockerfile
+        elif service.build:
+            build_context = service.build.context
+            if service.build.dockerfile:
+                dockerfile = service.build.dockerfile
+        else:
+            self.warnings.append(f"Service '{service_name}': Invalid 'build' format encountered.")
+            return None, None
+
+        # Create a clean path for the dockerfile
+        dockerfile_path = str(Path(build_context) / dockerfile)
+
+        # Create a build filter to watch for changes in the context directory
+        build_filter = RenderBuildFilter(paths=[f"{build_context}/**"])
+
+        return dockerfile_path, build_filter
     
     def _determine_service_type_and_ports(
         self, service: DockerComposeService
@@ -97,7 +146,7 @@ class Translator:
             return " ".join(service.command)
         return service.command
 
-    def _translate_env_vars(self, service: DockerComposeService) -> List[RenderEnvVar]:
+    def _translate_env_vars(self, service: DockerComposeService, service_name: str) -> List[RenderEnvVar]:
         """Translates environment variables from dict, list, and env_file."""
         env_vars: List[RenderEnvVar] = []
         if isinstance(service.environment, dict):
@@ -115,12 +164,12 @@ class Translator:
             files = [service.env_file] if isinstance(service.env_file, str) else service.env_file
             for file_path in files:
                 self.warnings.append(
-                    f"env_file '{file_path}' is used. "
+                    f"Service '{service_name}': env_file '{file_path}' is used. "
                     f"Ensure you create a corresponding secret file in Render."
                 )
         return env_vars
 
-    def _translate_volumes(self, service: DockerComposeService)-> List[RenderDisk]:
+    def _translate_volumes(self, service: DockerComposeService, service_name: str)-> List[RenderDisk]:
         """
         Translates Docker Compose volumes to Render Disks.
         - Named volumes become persistent disks.
@@ -141,22 +190,31 @@ class Translator:
             else:
                 # This is likely a bind mount (e.g., './:/app'). This is a critical warning.
                 self.warnings.append(
-                    f"Bind mount '{volume}' was ignored. Render does not support mounting host paths. "
+                    f"Service '{service_name}': Bind mount '{volume}' was ignored. Render does not support mounting host paths. "
                     f"Use Render Disks for persistent storage."
                 )
         return disks
 
-    def _transfer_healthcheck(self, service: DockerComposeService) -> Optional[RenderHealthCheck]:
+    def _transfer_healthcheck(self, service: DockerComposeService, service_name: str) -> Optional[RenderHealthCheck]:
         """
         Translates Docker healthcheck to a Render health check.
         Render only supports a simple path check, so we extract it with a regex.
         This is an opinionated, best-effort translation.
         """
-        if not service.healthcheck or not service.healthcheck.test:
+        if not service.healthcheck:
             return None
         
+        test_list = []
+        if isinstance(service.healthcheck, dict):
+            test_list = service.healthcheck.get("test", [])
+        else: # It's a DockerComposeHealthCheck object
+            test_list = service.healthcheck.test
+
+        if not test_list:
+            return None
+
         # Example: "CMD-SHELL", "curl -f http://localhost/health || exit 1"
-        test_command = " ".join(service.healthcheck.test)
+        test_command = " ".join(test_list)
 
         # Look for a URL path in the healthcheck command.
         match = re.search(r"https?://localhost(?::\d+)?(/[\w/-]*)", test_command)
@@ -165,7 +223,7 @@ class Translator:
             return RenderHealthCheck(path=path)
 
         self.warnings.append(
-            f"Could not translate complex healthcheck: '{test_command}'. "
+            f"Service '{service_name}': Could not translate complex healthcheck: '{test_command}'. "
             f"Only simple HTTP path checks are supported."
         )
         return None

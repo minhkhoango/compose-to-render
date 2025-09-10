@@ -6,9 +6,10 @@ from pathlib import Path
 import sys
 
 import typer
-from typing import Dict, Any
+from typing import Dict, Any, List, Tuple
 from rich.console import Console
 from ruamel.yaml import YAML
+from dataclasses import asdict
 
 from .models import DockerComposeConfig, DockerComposeService
 from .translator import Translator
@@ -25,6 +26,13 @@ console = Console()
 yaml = YAML()
 yaml.indent(mapping=2, sequence=4, offset=2)
 
+
+def clean_dict_factory(data: List[Tuple[str, Any]]) -> Dict[str, Any]:
+    """
+    Custom dict factory for asdict that filters out fields with a value of None.
+    This keeps the output YAML clean and readable.
+    """
+    return {k: v for k, v in data if v is not None}
 
 @app.command()
 def convert(
@@ -77,10 +85,11 @@ def convert(
         blueprint = translator.translate()
 
         # Prepare the output data
-        output_data = {"services": [vars(s) for s in blueprint.services]}
+        blueprint_dict = asdict(blueprint, dict_factory=clean_dict_factory)
+
 
         with open(output_file, 'w') as f:
-            yaml.dump(output_data, f)
+            yaml.dump(blueprint_dict, f)
 
         console.print(f"✅ Successfully converted to [bold green]{output_file.name}[/bold green].")
 

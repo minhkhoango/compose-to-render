@@ -61,7 +61,8 @@ class RenderService:
     type: Literal["web", "pserv", "cron", "static"]
     autoDeploy: bool = True
     image: Optional[RenderImage] = None
-    start_command: str | None = None
+    dockerfilePath: Optional[str] = None
+    start_command: Optional[str] = None
     envVars: List[RenderEnvVar] = field(default_factory=list)
     disks: List[RenderDisk] = field(default_factory=list)
     buildFilter: Optional[RenderBuildFilter] = None
@@ -101,13 +102,13 @@ class DockerComposeHealthCheck:
 class DockerComposeService:
     """Represents a single service in a docker-compose.yml file."""
     image: Optional[str] = None
-    build: Union[str, DockerComposeBuild, None] = None
+    build: Union[str, DockerComposeBuild, Dict[str, Any], None] = None
     command: Union[str, List[str], None] = None
     ports: List[str] = field(default_factory=list)
     environment: Union[Dict[str, Optional[str]], List[str], None] = None
     env_file: Union[str, List[str], None] = None
     volumes: List[str] = field(default_factory=list)
-    healthcheck: Optional[DockerComposeHealthCheck] = None
+    healthcheck: Union[DockerComposeHealthCheck, Dict[str, Any], None] = None
     depends_on: Union[List[str], Dict[str, Any], None] = None
 
 
